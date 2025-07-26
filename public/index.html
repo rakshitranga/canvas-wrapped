@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas Wrapped 2024-2025</title>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dom-to-image@2.6.0/src/dom-to-image.min.js"></script>
+    <style>
+      .fade-in {
+        animation: fadeIn 0.8s ease;
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(24px);}
+        to { opacity: 1; transform: translateY(0);}
+      }
+    </style>
+</head>
+<body class="font-sans bg-sky-100 min-h-screen text-sky-900 overflow-x-hidden">
+    <div class="w-full min-h-screen flex flex-col items-center justify-center" x-data="canvasWrapped()">
+        <!-- Setup Page -->
+        <div 
+            class="w-full min-h-screen flex flex-col items-center justify-center transition-all duration-500"
+            x-show="currentPage === 'setup'"
+        >
+            <h1 class="fade-in text-5xl md:text-6xl font-extrabold mb-6 text-center text-sky-700">
+                Canvas Wrapped 2024-2025
+            </h1>
+            <p class="fade-in text-lg md:text-xl mb-8 text-center text-sky-800">
+                See important canvas metrics for the last school year!
+            </p>
+
+            <div class="bg-white p-6 rounded-xl mb-8 w-full max-w-xl text-left text-base leading-relaxed shadow-lg border border-sky-200 text-sky-900">
+                <h3 class="font-bold mb-2">How to get your Canvas API token:</h3>
+                <ol class="list-decimal ml-6">
+                    <li>Go to your Canvas account settings</li>
+                    <li>Scroll down to "Approved Integrations"</li>
+                    <li>Click "+ New Access Token"</li>
+                    <li>Give it a purpose (e.g., "Canvas Wrapped")</li>
+                    <li>Click "Generate Token"</li>
+                    <li>Copy the token immediately (it won't show again!)</li>
+                </ol>
+                <p>Note: All data is processed locally. Your personal data is never stored!</p>
+            </div>
+
+            <div class="w-full max-w-md mb-4">
+                <label for="canvasUrl" class="block mb-2 font-bold text-sky-800">Canvas URL (without https://)</label>
+                <input 
+                    type="text" 
+                    id="canvasUrl"
+                    x-model="canvasUrl" 
+                    placeholder="e.g., canvas.university.edu"
+                    class="w-full p-3 rounded-lg bg-sky-50 text-sky-900 text-base placeholder-sky-400 mb-4 border border-sky-200"
+                />
+            </div>
+
+            <div class="w-full max-w-md mb-4">
+                <label for="accessToken" class="block mb-2 font-bold text-sky-800">Canvas API Token</label>
+                <input 
+                    type="password" 
+                    id="accessToken"
+                    x-model="accessToken" 
+                    placeholder="Your Canvas API token"
+                    class="w-full p-3 rounded-lg bg-sky-50 text-sky-900 text-base placeholder-sky-400 border border-sky-200"
+                />
+            </div>
+
+            <div x-show="error" class="bg-red-100 border border-red-300 p-4 rounded-lg mb-4 text-red-700 text-sm w-full max-w-md text-center" x-text="error"></div>
+
+            <button 
+                @click="generateWrapped()" 
+                :disabled="!canvasUrl || !accessToken || loading"
+                x-text="loading ? 'Generating Your Wrapped...' : 'Generate My Canvas Wrapped'"
+                class="bg-sky-600 px-8 py-3 rounded-full text-white text-lg font-bold cursor-pointer transition-transform duration-300 hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed m-2"
+            ></button>
+
+            <div x-show="loading" class="flex flex-col items-center justify-center mt-8">
+                <div class="w-12 h-12 border-4 border-sky-200 border-t-sky-600 rounded-full animate-spin mb-5"></div>
+                <p class="text-sky-800">Analyzing your Canvas journey... This may take a few moments!</p>
+            </div>
+        </div>
+
+        <!-- Wrapped Pages -->
+        <div class="w-full min-h-screen flex flex-col items-center justify-center transition-all duration-500" x-show="currentPage !== 'setup'" x-cloak>
+            <!-- Welcome Page -->
+            <div x-show="wrappedPage === 0" class="w-full flex flex-col items-center justify-center">
+                <h1 class="fade-in text-4xl md:text-5xl font-extrabold mb-4 text-center">Your 2024-2025 Canvas Wrapped</h1>
+                <h2 class="fade-in text-2xl mb-2 text-center" x-text="userData?.user || 'Canvas Student'"></h2>
+                <div class="text-6xl font-bold my-6 drop-shadow text-center" x-text="userData?.totalCourses || '0'"></div>
+                <p class="text-lg my-6 italic opacity-90 text-center">courses conquered this year! 🎯</p>
+                <div class="text-base mb-4 text-center" x-show="userData.courses.length">
+                    <template x-for="course in userData.courses">
+                        <div class="bg-white/20 px-3 py-1 rounded mb-2 inline-block">
+                            <span x-text="course.name"></span>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Living on the Edge -->
+            <div x-show="wrappedPage === 1 && userData?.metrics?.livingOnEdge" class="w-full flex flex-col items-center justify-center">
+                <h2 class="fade-in text-3xl font-bold mb-2 text-center">Living on the Edge</h2>
+                <div class="text-6xl font-bold my-6 drop-shadow text-center" x-text="userData.metrics.livingOnEdge.count"></div>
+                <p class="text-lg my-6 italic opacity-90 text-center" x-text="userData.metrics.livingOnEdge.caption"></p>
+                <div class="text-base mb-4 text-center" x-show="userData.metrics.livingOnEdge.examples?.length">
+                    <p>Your closest calls:</p>
+                    <template x-for="example in userData.metrics.livingOnEdge.examples">
+                        <div class="bg-white/20 px-3 py-1 rounded mb-2 inline-block">
+                            <span x-text="example.assignment"></span> - 
+                            <span x-text="example.minutesEarly"></span> minutes to spare!
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Most Procrastinated Class -->
+            <div x-show="wrappedPage === 2 && userData?.metrics?.mostProcrastinated" class="w-full flex flex-col items-center justify-center">
+                <h2 class="fade-in text-3xl font-bold mb-2 text-center">Most Procrastinated Class</h2>
+                <div class="text-6xl font-bold my-6 drop-shadow text-center" x-text="userData.metrics.mostProcrastinated.course"></div>
+                <p class="text-lg my-6 italic opacity-90 text-center" x-text="userData.metrics.mostProcrastinated.caption"></p>
+                <div class="text-base mb-4 text-center font-bold">
+                    Average lateness: <span x-text="userData.metrics.mostProcrastinated.avgLateness"></span> minutes<br>
+                    Late submissions: <span x-text="userData.metrics.mostProcrastinated.lateCount"></span>
+                </div>
+            </div>
+
+            <!-- Most Punctual Class -->
+            <div x-show="wrappedPage === 3 && userData?.metrics?.mostPunctual" class="w-full flex flex-col items-center justify-center">
+                <h2 class="fade-in text-3xl font-bold mb-2 text-center">Most Punctual Class</h2>
+                <div class="text-6xl font-bold my-6 drop-shadow text-center" x-text="userData.metrics.mostPunctual.course"></div>
+                <p class="text-lg my-6 italic opacity-90 text-center" x-text="userData.metrics.mostPunctual.caption"></p>
+                <div class="text-base mb-4 text-center font-bold">
+                    <span x-text="userData.metrics.mostPunctual.onTimeRate"></span>% on-time submission rate<br>
+                    <span x-text="userData.metrics.mostPunctual.onTimeCount"></span> assignments submitted on time
+                </div>
+            </div>
+
+            <!-- Assignment Marathon -->
+            <div x-show="wrappedPage === 4 && userData?.metrics?.assignmentMarathon" class="w-full flex flex-col items-center justify-center">
+                <h2 class="fade-in text-3xl font-bold mb-2 text-center">Assignment Marathon</h2>
+                <div class="text-6xl font-bold my-6 drop-shadow text-center" x-text="userData.metrics.assignmentMarathon.count"></div>
+                <p class="text-lg my-6 italic opacity-90 text-center" x-text="userData.metrics.assignmentMarathon.caption"></p>
+                <div class="text-base mb-4 text-center font-bold">
+                    Your most productive day: <span x-text="userData.metrics.assignmentMarathon.date"></span>
+                </div>
+            </div>
+
+            <!-- Late Night Warrior -->
+            <div x-show="wrappedPage === 5 && userData?.metrics?.lateNightWarrior" class="w-full flex flex-col items-center justify-center">
+                <h2 class="fade-in text-3xl font-bold mb-2 text-center">You at 11:59 PM</h2>
+                <div class="text-6xl font-bold my-6 drop-shadow text-center"><span x-text="userData.metrics.lateNightWarrior.percentage"></span>%</div>
+                <p class="text-lg my-6 italic opacity-90 text-center" x-text="userData.metrics.lateNightWarrior.caption"></p>
+                <div class="text-base mb-4 text-center font-bold">
+                    <span x-text="userData.metrics.lateNightWarrior.count"></span> submissions after 11:50 PM
+                </div>
+            </div>
+
+            <!-- Fastest Submission -->
+            <div x-show="wrappedPage === 6 && userData?.metrics?.fastestSubmission" class="w-full flex flex-col items-center justify-center">
+                <h2 class="fade-in text-3xl font-bold mb-2 text-center">Fastest Submission</h2>
+                <div class="text-6xl font-bold my-6 drop-shadow text-center"><span x-text="userData.metrics.fastestSubmission.minutes"></span> min</div>
+                <p class="text-lg my-6 italic opacity-90 text-center" x-text="userData.metrics.fastestSubmission.caption"></p>
+                <div class="text-base mb-4 text-center font-bold">
+                    <span x-text="userData.metrics.fastestSubmission.assignment"></span><br>
+                    in <span x-text="userData.metrics.fastestSubmission.course"></span>
+                </div>
+            </div>
+
+            <!-- Model Student -->
+            <div x-show="wrappedPage === 7 && userData?.metrics?.modelStudent" class="w-full flex flex-col items-center justify-center">
+                <h2 class="fade-in text-3xl font-bold mb-2 text-center">Model Student Status</h2>
+                <div class="text-6xl font-bold my-6 drop-shadow text-center" x-text="userData.metrics.modelStudent.isModel ? '✅' : userData.metrics.modelStudent.lateCount"></div>
+                <p class="text-lg my-6 italic opacity-90 text-center" x-text="userData.metrics.modelStudent.caption"></p>
+            </div>
+
+            <!-- Most Assignments Completed -->
+            <div x-show="wrappedPage === 8" class="w-full flex flex-col items-center justify-center">
+                <h2 class="fade-in text-3xl font-bold mb-2 text-center">Assignment Champion</h2>
+                <div class="text-6xl font-bold my-6 drop-shadow text-center" x-text="userData?.metrics?.mostCompleted?.count || userData?.totalSubmissions || '0'"></div>
+                <p class="text-lg my-6 italic opacity-90 text-center" x-text="userData?.metrics?.mostCompleted?.caption || 'You submitted assignments like a champion! 📤'"></p>
+            </div>
+
+            <!-- Lowest Grade Assignment Page -->
+            <div x-show="wrappedPage === 9 && userData?.metrics?.lowestGrade" class="w-full flex flex-col items-center justify-center">
+                <h2 class="fade-in text-3xl font-bold mb-2 text-center">Lowest Grade Assignment</h2>
+                <div class="text-6xl font-bold my-6 drop-shadow text-center text-red-600" x-text="userData.metrics.lowestGrade.percent !== undefined ? userData.metrics.lowestGrade.percent + '%' : '-'"></div>
+                <div class="text-lg my-4 text-center">
+                    <span class="font-bold">Assignment:</span>
+                    <span x-text="userData.metrics.lowestGrade.name"></span>
+                </div>
+                <div class="text-base mb-4 text-center text-sky-700" x-text="userData.metrics.lowestGrade.caption"></div>
+            </div>
+
+            <!-- Final Summary -->
+            <div x-show="wrappedPage === 10" class="w-full flex flex-col items-center justify-center">
+                <!-- Shareable stats card -->
+                <div id="shareCard" class="bg-white shadow-lg rounded-xl p-8 max-w-2xl w-full mx-auto flex flex-col items-center" style="min-height:400px;">
+                    <h1 class="fade-in text-4xl md:text-5xl font-extrabold mb-2 text-center text-sky-700">That's a Wrap! 🎬</h1>
+                    <h2 class="fade-in text-2xl mb-2 text-center text-sky-800" x-text="userData?.user || 'Amazing Student'"></h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 w-full mt-4">
+                        <div class="flex flex-col items-center">
+                            <span class="text-3xl">🔥</span>
+                            <div class="font-bold">Living on the Edge</div>
+                            <div x-text="userData?.metrics?.livingOnEdge?.count ?? '-'"></div>
+                            <div class="text-xs italic text-sky-500" x-text="userData?.metrics?.livingOnEdge?.caption"></div>
+                        </div>
+                        <div class="flex flex-col items-center">
+                            <span class="text-3xl">⌛</span>
+                            <div class="font-bold">Most Procrastinated</div>
+                            <div x-text="userData?.metrics?.mostProcrastinated?.course ?? '-'"></div>
+                            <div class="text-xs italic text-sky-500" x-text="userData?.metrics?.mostProcrastinated?.caption"></div>
+                        </div>
+                        <div class="flex flex-col items-center">
+                            <span class="text-3xl">🕊️</span>
+                            <div class="font-bold">Most Punctual</div>
+                            <div x-text="userData?.metrics?.mostPunctual?.course ?? '-'"></div>
+                            <div class="text-xs italic text-sky-500" x-text="userData?.metrics?.mostPunctual?.caption"></div>
+                        </div>
+                        <div class="flex flex-col items-center">
+                            <span class="text-3xl">📤</span>
+                            <div class="font-bold">Assignments</div>
+                            <div x-text="userData?.totalSubmissions ?? '-'"></div>
+                            <div class="text-xs italic text-sky-500">Total submitted</div>
+                        </div>
+                        <div class="flex flex-col items-center">
+                            <span class="text-3xl">⏰</span>
+                            <div class="font-bold">11:59 PM Subs</div>
+                            <div x-text="userData?.metrics?.lateNightWarrior?.count ?? '-'"></div>
+                            <div class="text-xs italic text-sky-500" x-text="userData?.metrics?.lateNightWarrior?.caption"></div>
+                        </div>
+                        <div class="flex flex-col items-center">
+                            <span class="text-3xl">💔</span>
+                            <div class="font-bold">Lowest Grade</div>
+                            <div x-text="userData?.metrics?.lowestGrade?.percent !== undefined ? userData.metrics.lowestGrade.percent + '%' : '-'"></div>
+                            <div class="text-xs italic text-sky-500" x-text="userData?.metrics?.lowestGrade?.caption"></div>
+                        </div>
+                    </div>
+                    <div class="mt-6 text-center text-sky-700 text-base italic">canvas-wrapped | Made with 💙</div>
+                </div>
+                <!-- Share and Reset Buttons -->
+                <div class="text-base mt-6 flex flex-col md:flex-row gap-2 items-center justify-center">
+                    <button 
+                        @click="shareWrapped()" 
+                        class="bg-sky-600 px-6 py-2 rounded-full text-white font-bold hover:bg-sky-700 transition"
+                    >Share Your Wrapped 🎉</button>
+                    <button 
+                        @click="resetApp()" 
+                        class="bg-sky-200 px-6 py-2 rounded-full text-sky-900 font-bold hover:bg-sky-300 transition"
+                    >Create Another Wrapped</button>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <div class="absolute bottom-8 left-0 right-0 flex justify-between items-center px-8">
+                <button 
+                    class="bg-white/20 px-5 py-2 rounded-lg text-black font-semibold text-base hover:bg-white/30 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    @click="previousPage()" 
+                    :disabled="wrappedPage === 0"
+                    x-show="wrappedPage > 0"
+                >
+                    ← Previous
+                </button>
+                
+                <div class="bg-white/30 px-4 py-2 rounded-full text-base font-semibold">
+                    <span x-text="wrappedPage + 1"></span> / <span x-text="totalPages"></span>
+                </div>
+                
+                <button 
+                    class="bg-white/20 px-5 py-2 rounded-lg text-black font-semibold text-base hover:bg-white/30 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    @click="nextPage()" 
+                    :disabled="wrappedPage >= totalPages - 1"
+                    x-show="wrappedPage < totalPages - 1"
+                >
+                    Next →
+                </button>
+                
+                <button 
+                    class="bg-white/20 px-5 py-2 rounded-lg text-black font-semibold text-base hover:bg-white/30 transition"
+                    @click="resetApp()"
+                    x-show="wrappedPage === totalPages - 1"
+                >
+                    Start Over
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Share Modal -->
+    <div 
+        x-show="showShareModal" 
+        x-transition 
+        class="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+        style="display: none;"
+    >
+        <div class="bg-white rounded-xl shadow-lg p-6 w-full max-w-2xl relative">
+            <button @click="showShareModal = false" class="absolute top-3 right-3 text-sky-700 text-2xl font-bold">&times;</button>
+            <h2 class="text-2xl font-bold mb-4 text-sky-700 text-center">Share Your Canvas Wrapped 🎉</h2>
+            <div class="flex flex-col items-center">
+                <canvas id="shareCanvas" width="700" height="400" class="border rounded mb-4"></canvas>
+                <button 
+                    @click="downloadCanvas()" 
+                    class="bg-sky-600 px-6 py-2 rounded-full text-white font-bold hover:bg-sky-700 transition mb-2"
+                >Download Image</button>
+            </div>
+            <p class="text-center text-sky-700 text-sm">You can download and share this image anywhere!</p>
+        </div>
+    </div>
+
+    <script>
+        function canvasWrapped() {
+            return {
+                currentPage: 'setup',
+                wrappedPage: 0,
+                totalPages: 11,
+                canvasUrl: '',
+                accessToken: '',
+                loading: false,
+                error: '',
+                userData: null,
+                showShareModal: false,
+
+                async generateWrapped() {
+                    this.loading = true;
+                    this.error = '';
+
+                    try {
+                        const response = await axios.get(`/api/wrapped/${this.canvasUrl}/${this.accessToken}`);
+                        
+                        if (response.data.success) {
+                            this.userData = response.data;
+                            this.currentPage = 'wrapped';
+                            this.wrappedPage = 0;
+                        } else {
+                            this.error = response.data.error || 'Failed to generate wrapped';
+                        }
+                    } catch (error) {
+                        console.error('Error:', error);
+                        if (error.response) {
+                            this.error = `Error: ${error.response.data.error || error.response.statusText}`;
+                        } else if (error.request) {
+                            this.error = 'No response from server. Make sure the backend is running.';
+                        } else {
+                            this.error = 'Network error. Please check your connection.';
+                        }
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+
+                nextPage() {
+                    if (this.wrappedPage < this.totalPages - 1) {
+                        this.wrappedPage++;
+                    }
+                },
+
+                previousPage() {
+                    if (this.wrappedPage > 0) {
+                        this.wrappedPage--;
+                    }
+                },
+
+                resetApp() {
+                    this.currentPage = 'setup';
+                    this.wrappedPage = 0;
+                    this.canvasUrl = '';
+                    this.accessToken = '';
+                    this.userData = null;
+                    this.error = '';
+                },
+
+                async shareWrapped() {
+                    const node = document.getElementById('shareCard');
+                    if (!node) return;
+                    try {
+                        const blob = await domtoimage.toBlob(node);
+                        // Try Web Share API with files (if supported)
+                        if (navigator.canShare && navigator.canShare({ files: [new File([blob], 'canvas-wrapped.png', { type: blob.type })] })) {
+                            const file = new File([blob], 'canvas-wrapped.png', { type: blob.type });
+                            await navigator.share({
+                                files: [file],
+                                title: 'My Canvas Wrapped',
+                                text: 'Check out my Canvas Wrapped stats!'
+                            });
+                        } else {
+                            // Fallback: download the image
+                            const url = URL.createObjectURL(blob);
+                            const link = document.createElement('a');
+                            link.href = url;
+                            link.download = 'canvas-wrapped.png';
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                            URL.revokeObjectURL(url);
+                            alert('Image downloaded! You can now share it anywhere.');
+                        }
+                    } catch (err) {
+                        alert('Could not generate image for sharing.');
+                        console.error(err);
+                    }
+                },
+
+                downloadCanvas() {
+                    const canvas = document.getElementById('shareCanvas');
+                    if (!canvas) return;
+                    const link = document.createElement('a');
+                    link.download = 'canvas-wrapped.png';
+                    link.href = canvas.toDataURL();
+                    link.click();
+                },
+
+                drawShareCanvas(userData) {
+                    const canvas = document.getElementById('shareCanvas');
+                    if (!canvas || !userData) return;
+                    // Ensure metrics is always an object
+                    const metrics = userData.metrics || {};
+
+                    const ctx = canvas.getContext('2d');
+                    // Background
+                    ctx.fillStyle = "#e0f2fe";
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                    // Title
+                    ctx.font = "bold 32px sans-serif";
+                    ctx.fillStyle = "#0369a1";
+                    ctx.textAlign = "center";
+                    ctx.fillText("🎓 Canvas Wrapped 2025 🎉", canvas.width / 2, 50);
+
+                    // User
+                    ctx.font = "bold 22px sans-serif";
+                    ctx.fillStyle = "#0ea5e9";
+                    ctx.fillText(userData.user || "Amazing Student", canvas.width / 2, 90);
+
+                    // Table headers
+                    ctx.font = "bold 18px sans-serif";
+                    ctx.fillStyle = "#0369a1";
+                    ctx.textAlign = "left";
+                    ctx.fillText("Metric", 60, 130);
+                    ctx.fillText("Value", 340, 130);
+                    ctx.fillText("Caption", 470, 130);
+
+                    // Table rows
+                    const tableMetrics = [
+                        {
+                            emoji: "🔥",
+                            label: "Living on the Edge",
+                            value: metrics.livingOnEdge?.count ?? "-",
+                            caption: metrics.livingOnEdge?.caption ?? ""
+                        },
+                        {
+                            emoji: "⌛",
+                            label: "Most Procrastinated",
+                            value: metrics.mostProcrastinated?.course ?? "-",
+                            caption: metrics.mostProcrastinated?.caption ?? ""
+                        },
+                        {
+                            emoji: "🕊️",
+                            label: "Most Punctual",
+                            value: metrics.mostPunctual?.course ?? "-",
+                            caption: metrics.mostPunctual?.caption ?? ""
+                        },
+                        {
+                            emoji: "📤",
+                            label: "Assignments",
+                            value: userData.totalSubmissions ?? "-",
+                            caption: "Total submitted"
+                        },
+                        {
+                            emoji: "⏰",
+                            label: "11:59 PM Submissions",
+                            value: metrics.lateNightWarrior?.count ?? "-",
+                            caption: metrics.lateNightWarrior?.caption ?? ""
+                        }
+                    ];
+
+                    ctx.font = "18px sans-serif";
+                    let y = 165;
+                    for (const m of tableMetrics) {
+                        ctx.fillStyle = "#0369a1";
+                        ctx.fillText(m.emoji + " " + m.label, 60, y);
+                        ctx.fillStyle = "#0ea5e9";
+                        ctx.fillText(String(m.value), 340, y);
+                        ctx.fillStyle = "#64748b";
+                        ctx.fillText(m.caption, 470, y);
+                        y += 38;
+                    }
+
+                    // Footer
+                    ctx.font = "italic 16px sans-serif";
+                    ctx.fillStyle = "#0369a1";
+                    ctx.textAlign = "center";
+                    ctx.fillText("canvas-wrapped | Made with 💙", canvas.width / 2, canvas.height - 24);
+                },
+
+                // Keyboard navigation
+                init() {
+                    document.addEventListener('keydown', (e) => {
+                        if (this.currentPage === 'wrapped') {
+                            if (e.key === 'ArrowRight' || e.key === ' ') {
+                                e.preventDefault();
+                                this.nextPage();
+                            } else if (e.key === 'ArrowLeft') {
+                                e.preventDefault();
+                                this.previousPage();
+                            }
+                        }
+                    });
+                }
+            }
+        }
+    </script>
+</body>
+</html>
